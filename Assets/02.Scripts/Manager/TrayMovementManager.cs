@@ -6,34 +6,25 @@ public class TrayMovementManager : MonoBehaviour
 {
     [SerializeField]
     private ConveyorBeltScrolling _conveyorBeltScrolling;
-
     [SerializeField]
     private float _moveDownSpeed = 2f;
-
     private List<TrayState> _activeTrays = new();
     private bool _isMovingDown = false;
 
-    private void Update()
-    {
-        if(!_isMovingDown)
-        {
-            return;
-        }
-
-        foreach (var tray in _activeTrays)
-        {
-            if(tray.CurrentState == TrayStateType.Stop)
-            {
-                tray.SetState(TrayStateType.MoveDown);
-            }
-        }
-    }
+    public bool IsMovingDown => _isMovingDown;
 
     public void RegisterTray(TrayState tray)//스폰
     {
-        if(!_activeTrays.Contains(tray))
+        if (!_activeTrays.Contains(tray))
         {
             _activeTrays.Add(tray);
+
+            // 게임이 진행 중이면 바로 MoveDown 상태로 설정
+            if (_isMovingDown && tray.CurrentState == TrayStateType.Stop)
+            {
+                tray.SetMoveSpeed(_moveDownSpeed);
+                tray.SetState(TrayStateType.MoveDown);
+            }
         }
     }
 
@@ -51,10 +42,13 @@ public class TrayMovementManager : MonoBehaviour
         _isMovingDown = true;
         _conveyorBeltScrolling.StartScrolling(_moveDownSpeed);
 
-        //트레일에도 스피드 전달
-        foreach(var tray in _activeTrays)
+        foreach (var tray in _activeTrays)
         {
             tray.SetMoveSpeed(_moveDownSpeed);
+            if (tray.CurrentState == TrayStateType.Stop)
+            {
+                tray.SetState(TrayStateType.MoveDown);
+            }
         }
     }
 
@@ -62,8 +56,7 @@ public class TrayMovementManager : MonoBehaviour
     {
         _isMovingDown = false;
         _conveyorBeltScrolling.StopScrolling();
-
-        foreach(var tray in _activeTrays)
+        foreach (var tray in _activeTrays)
         {
             tray.SetState(TrayStateType.Stop);
         }
@@ -74,3 +67,4 @@ public class TrayMovementManager : MonoBehaviour
         StartMoveingDown();
     }
 }
+
