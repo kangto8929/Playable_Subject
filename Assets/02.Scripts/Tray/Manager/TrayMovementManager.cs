@@ -6,8 +6,11 @@ public class TrayMovementManager : MonoBehaviour
 {
     [SerializeField]
     private ConveyorBeltScrolling _conveyorBeltScrolling;
-    [SerializeField]
-    private float _moveDownSpeed = 2f;
+
+
+    private float _moveDownSpeed = 20f;
+    public float MoveDownSpeed => _moveDownSpeed;
+
     private List<TrayState> _activeTrays = new();
     private bool _isMovingDown = false;
 

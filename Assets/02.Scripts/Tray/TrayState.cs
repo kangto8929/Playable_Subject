@@ -13,6 +13,8 @@ public enum TrayStateType
 
 public class TrayState : MonoBehaviour
 {
+   
+
     private TraySpawner _traySpawner;
     private TrayMovementManager _trayMovementManager;
     public TrayStateType CurrentState { get; private set; } = TrayStateType.Stop;//처음에는 멈춰야 함.
@@ -29,6 +31,11 @@ public class TrayState : MonoBehaviour
     // DOTween 중복 실행 방지
     private bool _isMovingLeft = false;
 
+    private void Start()
+    {
+        _moveDownSpeed = _trayMovementManager.MoveDownSpeed;
+    }
+
     public void Init(TraySpawner traySpawner)
     {
         this._traySpawner = traySpawner;
@@ -39,7 +46,7 @@ public class TrayState : MonoBehaviour
     private void OnEnable()
     {
         //시작할 때,튜토리얼에서는 멈춰야 함
-        CurrentState = TrayStateType.Stop;
+        //CurrentState = TrayStateType.Stop;
         _isMovingLeft = false;
 
         transform.DOKill();
@@ -70,7 +77,10 @@ public class TrayState : MonoBehaviour
 
     private void MoveLeft()
     {
-        if (_isMovingLeft) return; // 중복 실행 방지
+        // 다음 트레이 스폰
+        _traySpawner.SpawnTray();
+
+        if (_isMovingLeft) return;
 
         _isMovingLeft = true;
 
@@ -79,15 +89,18 @@ public class TrayState : MonoBehaviour
             .OnComplete(() =>
             {
                 _isMovingLeft = false;
-                SetState(TrayStateType.Stop);
                 ReturnToPool();
             });
+
+       
     }
 
     private void ReturnToPool()
     {
         _trayMovementManager.UnregisterTray(this);
         _traySpawner.RecycleTray(gameObject);
+
+        
     }
 
     public void SetState(TrayStateType newState)
@@ -106,6 +119,8 @@ public class TrayState : MonoBehaviour
         {
             Debug.Log("Game Over 감지됨!");
             _trayMovementManager.StopMoving();
+
+            UI_GameOver.Instance.ShowGameOverPanel();
         }
     }
 

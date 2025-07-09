@@ -1,44 +1,56 @@
-using System.Collections;
 using System.Collections.Generic;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.VFX;
-using UnityEngine.UI;
-using TMPro;
-using static Unity.Burst.Intrinsics.X86.Avx;
 
 public class TraySpawner : MonoBehaviour
 {
     [Header("스폰 설정")]
     [SerializeField]
     private GameObject _trayPrefab;
+
     [SerializeField]
     private Transform _trayParent;
+    public Transform TrayParent => _trayParent;
+
     [SerializeField]
     private Vector3 _firstPosition = new(-33.4f, 38.6f, 101.8f);
 
     [SerializeField]
-    private float _yDistance = 10f;//트레이간 거리
+    private GoodsType _firstTrayGoodsType = GoodsType.BottledDrink; // 맨 처음 트레이 타입 고정
+
+    [SerializeField]
+    private float _yDistance = 10f; // 트레이 간 거리
 
     [SerializeField]
     private int _poolSize = 10;
+
     private Queue<GameObject> pool = new();
     private Vector3 _nextPosition;
 
+    private List<GameObject> activeTrays = new List<GameObject>();
 
     private TrayMovementManager _trayMovementManager;
 
     private void Awake()
     {
-        _nextPosition = _firstPosition;
         _trayMovementManager = FindObjectOfType<TrayMovementManager>();
 
-        for (int i = 0; i < 4; i++)//처음 4개는 생성 후 활성화
+        // 처음 4개 생성 (정지 상태) - 튜토리얼
+        for (int i = 0; i < 4; i++)
         {
             GameObject tray = CreateTray();
-            tray.transform.position = _nextPosition;
+
+            if (i == 0)
+                tray.GetComponent<TrayContentInitializer>().Init(_firstTrayGoodsType);
+            else
+                tray.GetComponent<TrayContentInitializer>().Init();
+
+            tray.GetComponent<TrayState>().Init(this);
+            tray.transform.position = _firstPosition + Vector3.up * (_yDistance * i);
             tray.SetActive(true);
-            _nextPosition += Vector3.up * _yDistance;
+
+            tray.GetComponent<TrayState>().SetState(TrayStateType.Stop);
+
+            activeTrays.Add(tray);
         }
 
         for (int i = 0; i < _poolSize - 4; i++)
@@ -46,39 +58,71 @@ public class TraySpawner : MonoBehaviour
             GameObject tray = CreateTray();
             pool.Enqueue(tray);
         }
+
+        UpdateNextPosition();
     }
 
     private GameObject CreateTray()
     {
-        var spawnNewTrayObject = Instantiate(_trayPrefab, _trayParent);
-        spawnNewTrayObject.SetActive(false);
+        var trayObj = Instantiate(_trayPrefab, _trayParent);
+        trayObj.SetActive(false);
+        trayObj.GetComponent<TrayContentInitializer>().Init();
+        trayObj.GetComponent<TrayState>().Init(this);
+        return trayObj;
+    }
 
-        spawnNewTrayObject.GetComponent<TrayContentInitializer>().Init();
-        spawnNewTrayObject.GetComponent<TrayState>().Init(this);
+    private void UpdateNextPosition()
+    {
+        float highestY = float.MinValue;
 
-        return spawnNewTrayObject;
+        foreach (var tray in activeTrays)
+        {
+            if (tray.activeSelf)
+            {
+                float y = tray.transform.position.y;
+                if (y > highestY)
+                    highestY = y;
+            }
+        }
+
+        if (highestY == float.MinValue)
+        {
+            // 활성 트레이 없으면 기본 위치로 초기화
+            _nextPosition = _firstPosition;
+        }
+        else
+        {
+            _nextPosition = new Vector3(_firstPosition.x, highestY + _yDistance, _firstPosition.z);
+        }
     }
 
     public GameObject SpawnTray()
     {
-        //부족하면 새로 생성
-        var spawntray = pool.Count > 0 ? pool.Dequeue() : CreateTray();
-        spawntray.transform.position = _nextPosition;
+        GameObject spawnTray = pool.Count > 0 ? pool.Dequeue() : CreateTray();
 
-        spawntray.GetComponent<TrayContentInitializer>().Init();
-        spawntray.GetComponent<TrayState>().Init(this);
+        spawnTray.GetComponent<TrayContentInitializer>().Init();
+        spawnTray.GetComponent<TrayState>().Init(this);
 
-        spawntray.SetActive(true);
-        //var trayState = spawntray.GetComponent<TrayState>();
+        UpdateNextPosition();
 
+        spawnTray.transform.position = _nextPosition;
+        spawnTray.SetActive(true);
+        activeTrays.Add(spawnTray);
 
-        _nextPosition += Vector3.up * _yDistance;
-        return spawntray;
+        // 이동 속도 및 상태 설정
+        spawnTray.GetComponent<TrayState>().SetMoveSpeed(_trayMovementManager.MoveDownSpeed);
+        spawnTray.GetComponent<TrayState>().SetState(TrayStateType.MoveDown);
+
+        return spawnTray;
     }
 
-    public void RecycleTray(GameObject finishedTray)
+    public void RecycleTray(GameObject tray)
     {
-        finishedTray.SetActive(false);
-        pool.Enqueue(finishedTray);
+        tray.SetActive(false);
+        activeTrays.Remove(tray);
+        pool.Enqueue(tray);
+
+        UpdateNextPosition();
     }
 }
+
