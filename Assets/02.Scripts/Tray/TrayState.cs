@@ -4,6 +4,7 @@ using Unity.VisualScripting;
 using UnityEngine;
 using DG.Tweening;
 
+
 public enum TrayStateType
 {
     MoveDown,//아래로 이동
@@ -118,11 +119,16 @@ public class TrayState : MonoBehaviour
         if (other.CompareTag("GameOver"))
         {
             Debug.Log("Game Over 감지됨!");
+
+            // 게임 움직임 멈추기
             _trayMovementManager.StopMoving();
 
+            // GameManager에 게임오버 처리 위임
             UI_GameOver.Instance.ShowGameOverPanel();
         }
     }
+
+
 
     private void OnDisable()
     {
